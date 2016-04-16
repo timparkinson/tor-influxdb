@@ -1,4 +1,4 @@
-import re
+#import re
 import platform
 from influxdb import InfluxDBClient
 from stem.control import EventType, Controller
@@ -12,14 +12,26 @@ INFLUXDB_DATABASE = "tor"
 with Controller.from_socket_file() as controller:
   controller.authenticate()
   
-  p = re.compile('(?P<read>\d+)\,(?P<write>\d+)$')
+ # p = re.compile('(?P<read>\d+)\,(?P<write>\d+)$')
   
   bytes_read = controller.get_info("traffic/read")
   bytes_written = controller.get_info("traffic/written")
   bandwidth = controller.get_info("bw-event-cache")
-  m = p.search(bandwidth)
+  #m = p.search(bandwidth)
+  tx = 0
+  rx = 0
+  i = 0
+  for value in (bandwidth.split(' '))[-60:]:
+    value_split = value.split(',')
+    rx += int(value_split[0])
+    tx += int(value_split[1])
+    i += 1
+
+  rx /= i
+  tx /= i
+
   print("%s read, %s written" % (bytes_read, bytes_written))
-  print("%s read, %s written" % (m.group('read'), m.group('write')))
+  print("%s read, %s written" % (rx, tx))
   tags = {
     'hostname': platform.node()
   }
@@ -39,13 +51,13 @@ with Controller.from_socket_file() as controller:
     {
       'measurement': 'bytes_read_1s',
       'fields': {
-        'value': int(m.group('read'))
+        'value': int(rx)
       }
     },
     {
       'measurement': 'bytes_written_1s',
       'fields': {
-        'value': int(m.group('write'))
+        'value': int(tx)
       }
     }
     ]
